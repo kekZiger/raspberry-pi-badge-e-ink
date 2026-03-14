@@ -1,0 +1,6 @@
+flask
+pillow
+RPi.GPIO
+spidev
+gpiozero
+lgpio

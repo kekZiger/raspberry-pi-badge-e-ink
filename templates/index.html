@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Badge Editor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: #f0f0f0; padding: 20px; }
+        h1 { margin-bottom: 20px; font-size: 1.4rem; }
+        h2 { font-size: 1rem; margin-bottom: 12px; color: #444; }
+
+        .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 900px; }
+        @media (max-width: 600px) { .layout { grid-template-columns: 1fr; } }
+
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+
+        label { display: block; font-size: 0.85rem; color: #555; margin-bottom: 4px; margin-top: 12px; }
+        label:first-of-type { margin-top: 0; }
+        input[type=text], select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
+        input[type=file] { font-size: 0.85rem; }
+
+        .rotation-group { display: flex; gap: 8px; margin-top: 4px; }
+        .rotation-group label { margin: 0; }
+
+        .btn { padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+        .btn-primary  { background: #2d6a4f; color: white; }
+        .btn-secondary{ background: #666;    color: white; }
+        .btn-warning  { background: #e67e22; color: white; }
+        .btn-danger   { background: #c0392b; color: white; }
+        .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+        .btn-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+
+        #preview-box { margin-top: 16px; }
+        #preview-box img { border: 1px solid #ccc; border-radius: 4px; max-width: 100%; image-rendering: pixelated; }
+
+        .badge-list { display: flex; flex-direction: column; gap: 10px; }
+        .badge-item { background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .badge-item.editing { border-color: #e67e22; background: #fff8f3; }
+        .badge-item-info strong { display: block; }
+        .badge-item-info span { font-size: 0.8rem; color: #666; }
+        .badge-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+        #edit-indicator { font-size: 0.8rem; color: #e67e22; display: none; align-items: center; gap: 6px; }
+        #edit-indicator.visible { display: flex; }
+
+        .msg { padding: 8px 12px; border-radius: 4px; margin-top: 12px; font-size: 0.9rem; }
+        .msg-ok  { background: #d4edda; color: #155724; }
+        .msg-err { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🏷️ Badge Editor</h1>
+
+    <div class="layout">
+        <!-- Editor -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 id="editor-title">Neues Badge</h2>
+                <div id="edit-indicator">
+                    ✏️ Bearbeite Eintrag
+                    <button class="btn btn-sm btn-secondary" onclick="resetForm()">Abbrechen</button>
+                </div>
+            </div>
+
+            <input type="hidden" id="edit-id" value="">
+
+            <label>Name</label>
+            <input type="text" id="name" maxlength="20" placeholder="Marcel">
+
+            <label>Titel</label>
+            <input type="text" id="title" maxlength="35" placeholder="PHP / Laravel Developer">
+
+            <label>Info</label>
+            <input type="text" id="info" maxlength="45" placeholder="IT Admin · badge.local">
+
+            <label>Rotation</label>
+            <div class="rotation-group">
+                <label><input type="radio" name="rotation" value="0" checked> 0°</label>
+                <label><input type="radio" name="rotation" value="90"> 90°</label>
+                <label><input type="radio" name="rotation" value="180"> 180°</label>
+                <label><input type="radio" name="rotation" value="270"> 270°</label>
+            </div>
+
+            <label>Bild (optional)</label>
+            <input type="file" id="image" accept="image/*">
+
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="previewBadge()">Vorschau</button>
+                <button class="btn btn-primary"   id="save-btn" onclick="saveBadge()">Speichern</button>
+            </div>
+
+            <div id="preview-box"></div>
+            <div id="msg"></div>
+        </div>
+
+        <!-- Gespeicherte Badges -->
+        <div class="card">
+            <h2>Gespeicherte Badges</h2>
+            <div class="badge-list" id="badge-list">
+                {% for b in badges %}
+                <div class="badge-item" id="badge-{{ b.id }}">
+                    <div class="badge-item-info">
+                        <strong>{{ b.name }}</strong>
+                        <span>{{ b.title }}</span>
+                        <span>{{ b.info }} · {{ b.rotation }}°</span>
+                    </div>
+                    <div class="badge-item-actions">
+                        <button class="btn btn-warning btn-sm" onclick="editBadge({{ b.id }}, '{{ b.name|e }}', '{{ b.title|e }}', '{{ b.info|e }}', {{ b.rotation }})">✏️</button>
+                        <button class="btn btn-primary btn-sm" onclick="displayBadge({{ b.id }})">▶</button>
+                        <button class="btn btn-danger  btn-sm" onclick="deleteBadge({{ b.id }})">✕</button>
+                    </div>
+                </div>
+                {% else %}
+                <p style="color:#999; font-size:0.9rem;" id="empty-hint">Noch keine Badges gespeichert.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let currentEditId = null;
+
+    function getFormData() {
+        const data = new FormData();
+        data.append('name',     document.getElementById('name').value);
+        data.append('title',    document.getElementById('title').value);
+        data.append('info',     document.getElementById('info').value);
+        data.append('rotation', document.querySelector('input[name=rotation]:checked').value);
+        const img = document.getElementById('image').files[0];
+        if (img) data.append('image', img);
+        return data;
+    }
+
+    function showMsg(text, ok = true) {
+        const el = document.getElementById('msg');
+        el.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err');
+        el.textContent = text;
+        setTimeout(() => el.textContent = '', 4000);
+    }
+
+    function resetForm() {
+        currentEditId = null;
+        document.getElementById('edit-id').value      = '';
+        document.getElementById('name').value         = '';
+        document.getElementById('title').value        = '';
+        document.getElementById('info').value         = '';
+        document.getElementById('image').value        = '';
+        document.querySelector('input[name=rotation][value="0"]').checked = true;
+        document.getElementById('editor-title').textContent = 'Neues Badge';
+        document.getElementById('save-btn').textContent     = 'Speichern';
+        document.getElementById('edit-indicator').classList.remove('visible');
+        document.querySelectorAll('.badge-item').forEach(el => el.classList.remove('editing'));
+        document.getElementById('preview-box').innerHTML = '';
+    }
+
+    function editBadge(id, name, title, info, rotation) {
+        resetForm();
+        currentEditId = id;
+        document.getElementById('name').value  = name;
+        document.getElementById('title').value = title;
+        document.getElementById('info').value  = info;
+        document.querySelector(`input[name=rotation][value="${rotation}"]`).checked = true;
+        document.getElementById('editor-title').textContent = 'Badge bearbeiten';
+        document.getElementById('save-btn').textContent     = 'Aktualisieren';
+        document.getElementById('edit-indicator').classList.add('visible');
+        document.getElementById(`badge-${id}`).classList.add('editing');
+        document.getElementById('name').focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function previewBadge() {
+        const res  = await fetch('/preview', { method: 'POST', body: getFormData() });
+        const data = await res.json();
+        document.getElementById('preview-box').innerHTML =
+            `<p style="font-size:.8rem;color:#666;margin-bottom:4px;">Vorschau (4×):</p>
+             <img src="data:image/png;base64,${data.preview}">`;
+    }
+
+    function addBadgeToList(id, name, title, info, rotation) {
+        const hint = document.getElementById('empty-hint');
+        if (hint) hint.remove();
+
+        const item = document.createElement('div');
+        item.className = 'badge-item';
+        item.id = `badge-${id}`;
+        item.innerHTML = `
+            <div class="badge-item-info">
+                <strong>${escHtml(name)}</strong>
+                <span>${escHtml(title)}</span>
+                <span>${escHtml(info)} · ${rotation}°</span>
+            </div>
+            <div class="badge-item-actions">
+                <button class="btn btn-warning btn-sm" onclick="editBadge(${id}, '${escJs(name)}', '${escJs(title)}', '${escJs(info)}', ${rotation})">✏️</button>
+                <button class="btn btn-primary btn-sm" onclick="displayBadge(${id})">▶</button>
+                <button class="btn btn-danger  btn-sm" onclick="deleteBadge(${id})">✕</button>
+            </div>`;
+        document.getElementById('badge-list').prepend(item);
+    }
+
+    function updateBadgeInList(id, name, title, info, rotation) {
+        const item = document.getElementById(`badge-${id}`);
+        if (!item) return;
+        item.querySelector('strong').textContent     = name;
+        item.querySelectorAll('span')[0].textContent = title;
+        item.querySelectorAll('span')[1].textContent = `${info} · ${rotation}°`;
+        // Buttons neu setzen damit escJs-Werte aktuell sind
+        item.querySelector('.badge-item-actions').innerHTML = `
+            <button class="btn btn-warning btn-sm" onclick="editBadge(${id}, '${escJs(name)}', '${escJs(title)}', '${escJs(info)}', ${rotation})">✏️</button>
+            <button class="btn btn-primary btn-sm" onclick="displayBadge(${id})">▶</button>
+            <button class="btn btn-danger  btn-sm" onclick="deleteBadge(${id})">✕</button>`;
+    }
+
+    async function saveBadge() {
+        if (currentEditId) {
+            // Update
+            const res = await fetch(`/update/${currentEditId}`, { method: 'POST', body: getFormData() });
+            if (res.ok) {
+                const rotation = parseInt(document.querySelector('input[name=rotation]:checked').value);
+                updateBadgeInList(
+                    currentEditId,
+                    document.getElementById('name').value,
+                    document.getElementById('title').value,
+                    document.getElementById('info').value,
+                    rotation
+                );
+                showMsg('✅ Badge aktualisiert.');
+                resetForm();
+            } else {
+                showMsg('❌ Fehler beim Aktualisieren.', false);
+            }
+        } else {
+            // Neu anlegen
+            const res  = await fetch('/save', { method: 'POST', body: getFormData() });
+            const data = await res.json();
+            if (res.ok) {
+                addBadgeToList(data.id, data.name, data.title, data.info, data.rotation);
+                showMsg('✅ Badge gespeichert.');
+                resetForm();
+            } else {
+                showMsg('❌ Fehler beim Speichern.', false);
+            }
+        }
+    }
+
+    async function displayBadge(id) {
+        const res = await fetch(`/display/${id}`, { method: 'POST' });
+        showMsg(res.ok ? '✅ Wird auf dem Display angezeigt.' : '❌ Fehler beim Anzeigen.', res.ok);
+    }
+
+    async function deleteBadge(id) {
+        if (!confirm('Badge löschen?')) return;
+        const res = await fetch(`/delete/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            document.getElementById(`badge-${id}`).remove();
+            if (currentEditId === id) resetForm();
+        }
+    }
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escJs(s) {
+        return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    }
+    </script>
+</body>
+</html>

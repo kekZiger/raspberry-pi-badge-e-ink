@@ -1,0 +1,12 @@
+[Unit]
+Description=Badge E-Ink Web Interface
+After=network.target
+
+[Service]
+User=badge
+WorkingDirectory=/home/badge/badge-app
+ExecStart=/home/badge/badge-env/bin/python app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
