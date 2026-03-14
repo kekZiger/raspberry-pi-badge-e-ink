@@ -91,7 +91,7 @@ cd ~
 ### 4. Repository klonen
 
 ```bash
-git clone https://github.com/dein-user/pi-badge.git ~/badge-app
+git clone https://github.com/kekZiger/raspberry-pi-badge-e-ink.git ~/badge-app
 cd ~/badge-app
 ```
 
